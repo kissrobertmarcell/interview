@@ -1,19 +1,34 @@
 # Secret Server
 
-A secure API for sharing secrets via web requests.
+REST API for sharing secrets securely with expiration rules.
 
 ## Features
-- Share secrets securely
-- Set expiration by time or number of views
-- Support for JSON and XML responses
+- Create and retrieve secrets via API
+- Automatic expiration after specified views
+- Time-based expiration
+- JSON and XML response support
+
+## API Endpoints
+
+### Create Secret
+```bash
+curl -X POST http://localhost:8000/api/secret \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -H "Accept: application/json" \
+  -d "secret=my secret&expireAfterViews=2&expireAfter=5"
+```
+
+### Retrieve Secret
+```bash
+curl -H "Accept: application/json" http://localhost:8000/api/secret/{hash}
+```
 
 ## Setup
-```bash
-composer install
-symfony server:start
-```
+1. Clone repository
+2. Run `composer install`
+3. Start server: `symfony server:start`
 
 ## Testing
 ```bash
-php bin/phpunit
+php bin/phpunit --testdox
 ```

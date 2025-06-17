@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Entity\Secret;
@@ -6,51 +9,40 @@ use App\Service\SecretStorage;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\SerializerInterface;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 
-#[Route('/v1')]
-class SecretController extends AbstractController
+#[Route('/api/secret')]
+final class SecretController extends AbstractController
 {
     public function __construct(
         private SecretStorage $secretStorage,
         private SerializerInterface $serializer
     ) {}
 
-    #[Route('/secret', methods: ['POST'])]
+    #[Route('', methods: ['POST'])]
     public function create(Request $request): Response
     {
-        try {
-            if (!$request->request->has('secret') || 
-                !$request->request->has('expireAfterViews') || 
-                !$request->request->has('expireAfter')) {
-                throw new MethodNotAllowedHttpException([], 'Missing required parameters');
-            }
-
-            $secret = new Secret();
-            $secret->setSecret($request->request->get('secret'))
-                ->setExpireAfterViews((int) $request->request->get('expireAfterViews'))
-                ->setExpireAfter((int) $request->request->get('expireAfter'));
-
-            $this->secretStorage->save($secret);
-
-            return $this->createResponse($secret, $request, Response::HTTP_OK);
-        } catch (\InvalidArgumentException $e) {
-            return new Response(
-                json_encode(['error' => $e->getMessage()]),
-                Response::HTTP_METHOD_NOT_ALLOWED,
-                ['Content-Type' => 'application/json']
-            );
+        if (empty($request->request->get('secret'))) {
+            return new Response('Invalid input', Response::HTTP_METHOD_NOT_ALLOWED);
         }
+
+        $secret = new Secret();
+        $secret->setSecret($request->request->get('secret'));
+        $secret->setExpireAfterViews($request->request->getInt('expireAfterViews', 1));
+        $secret->setExpireAfter($request->request->getInt('expireAfter', 0));
+
+        $this->secretStorage->save($secret);
+
+        return $this->createResponse($secret, $request);
     }
 
-    #[Route('/secret/{hash}', methods: ['GET'])]
+    #[Route('/{hash}', methods: ['GET'])]
     public function view(string $hash, Request $request): Response
     {
         $secret = $this->secretStorage->find($hash);
-
+        
         if (!$secret || $secret->isExpired()) {
             throw new NotFoundHttpException('Secret not found');
         }
@@ -58,33 +50,25 @@ class SecretController extends AbstractController
         $secret->decrementRemainingViews();
         $this->secretStorage->save($secret);
 
-        return $this->createResponse($secret, $request, Response::HTTP_OK);
+        return $this->createResponse($secret, $request);
     }
 
-    private function createResponse(Secret $secret, Request $request, int $status): Response
+    private function createResponse(Secret $secret, Request $request): Response
     {
-        $format = $this->getResponseFormat($request);
-        $contentType = $format === 'xml' ? 'application/xml' : 'application/json';
+        $acceptHeader = $request->getAcceptableContentTypes()[0] ?? 'application/json';
         
-        $context = [
-            'xml_root_node_name' => 'Secret',
-            'datetime_format' => 'Y-m-d\TH:i:s.u\Z'
-        ];
-        
-        $data = $this->serializer->serialize($secret, $format, $context);
+        if (str_contains($acceptHeader, 'xml')) {
+            return new Response(
+                $this->serializer->serialize($secret, 'xml'),
+                Response::HTTP_OK,
+                ['Content-Type' => 'application/xml']
+            );
+        }
 
-        return new Response($data, $status, [
-            'Content-Type' => $contentType
-        ]);
-    }
-
-    private function getResponseFormat(Request $request): string
-    {
-        $accept = $request->headers->get('Accept');
-        
-        return match (true) {
-            str_contains($accept ?? '', 'application/xml') => 'xml',
-            default => 'json'
-        };
+        return new Response(
+            $this->serializer->serialize($secret, 'json'),
+            Response::HTTP_OK,
+            ['Content-Type' => 'application/json']
+        );
     }
 }

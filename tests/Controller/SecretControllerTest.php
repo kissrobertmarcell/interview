@@ -39,7 +39,7 @@ final class SecretControllerTest extends WebTestCase
 
     public function testCreateSecret(): void
     {
-        self::$client->request('POST', '/v1/secret', [
+        self::$client->request('POST', '/api/secret', [
             'secret' => 'test secret',
             'expireAfterViews' => 2,
             'expireAfter' => 5
@@ -56,7 +56,7 @@ final class SecretControllerTest extends WebTestCase
     public function testViewSecret(): void
     {
         // Create a secret first
-        self::$client->request('POST', '/v1/secret', [
+        self::$client->request('POST', '/api/secret', [
             'secret' => 'view test',
             'expireAfterViews' => 1,
             'expireAfter' => 5
@@ -66,19 +66,19 @@ final class SecretControllerTest extends WebTestCase
         $hash = $content['hash'];
 
         // View the secret
-        self::$client->request('GET', "/v1/secret/{$hash}");
+        self::$client->request('GET', "/api/secret/{$hash}");
         
         $response = self::$client->getResponse();
         $this->assertEquals(Response::HTTP_OK, $response->getStatusCode());
         
         // Second view should fail
-        self::$client->request('GET', "/v1/secret/{$hash}");
+        self::$client->request('GET', "/api/secret/{$hash}");
         $this->assertEquals(Response::HTTP_NOT_FOUND, self::$client->getResponse()->getStatusCode());
     }
 
     public function testInvalidInput(): void
     {
-        self::$client->request('POST', '/v1/secret', [
+        self::$client->request('POST', '/api/secret', [
             'secret' => '',
             'expireAfterViews' => 0,
             'expireAfter' => 0
@@ -92,7 +92,7 @@ final class SecretControllerTest extends WebTestCase
 
     public function testXmlResponse(): void
     {
-        self::$client->request('POST', '/v1/secret', [
+        self::$client->request('POST', '/api/secret', [
             'secret' => 'xml test',
             'expireAfterViews' => 1,
             'expireAfter' => 5
@@ -105,7 +105,7 @@ final class SecretControllerTest extends WebTestCase
 
     public function testCreateResponseWithInvalidFormat(): void
     {
-        self::$client->request('POST', '/v1/secret', [
+        self::$client->request('POST', '/api/secret', [
             'secret' => 'test format',
             'expireAfterViews' => 1,
             'expireAfter' => 5
