@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: secret-server
+    env: php
+    buildCommand: composer install --no-dev
+    startCommand: php -S 0.0.0.0:$PORT -t public/
+    envVars:
+      - key: APP_ENV
+        value: prod
+      - key: APP_DEBUG
+        value: 0
+      - key: APP_SECRET
+        generateValue: true
+      - key: STORAGE_DIR
+        value: /var/data/secrets
+    disk:
+      name: secrets-storage
+      mountPath: /var/data
+      sizeGB: 1

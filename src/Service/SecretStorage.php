@@ -9,13 +9,9 @@ class SecretStorage
 
     public function __construct(string $projectDir)
     {
-        $this->storageFile = $projectDir . '/var/secrets.json';
-        if (!file_exists(dirname($this->storageFile))) {
-            mkdir(dirname($this->storageFile), 0777, true);
-        }
-        if (!file_exists($this->storageFile)) {
-            file_put_contents($this->storageFile, '[]');
-        }
+        $storageDir = $_ENV['STORAGE_DIR'] ?? $projectDir . '/var/storage';
+        $this->storageFile = $storageDir . '/secrets.json';
+        $this->initializeStorage();
     }
 
     public function save(Secret $secret): void
@@ -48,5 +44,15 @@ class SecretStorage
             mkdir(dirname($this->storageFile), 0777, true);
         }
         file_put_contents($this->storageFile, serialize($secrets));
+    }
+
+    private function initializeStorage(): void
+    {
+        if (!file_exists(dirname($this->storageFile))) {
+            mkdir(dirname($this->storageFile), 0777, true);
+        }
+        if (!file_exists($this->storageFile)) {
+            file_put_contents($this->storageFile, '[]');
+        }
     }
 }
