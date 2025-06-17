@@ -12,15 +12,16 @@ REST API for sharing secrets securely with expiration rules.
 
 ### Create Secret
 ```bash
-curl -X POST http://localhost:8000/api/secret \
+curl -X POST \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -H "Accept: application/json" \
-  -d "secret=my secret&expireAfterViews=2&expireAfter=5"
+  -d "secret=my secret&expireAfterViews=2&expireAfter=5" \
+  http://localhost:8000/v1/secret
 ```
 
 ### Retrieve Secret
 ```bash
-curl -H "Accept: application/json" http://localhost:8000/api/secret/{hash}
+curl -H "Accept: application/json" http://localhost:8000/v1/secret/{hash}
 ```
 
 ## Setup

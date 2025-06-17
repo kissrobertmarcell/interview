@@ -13,23 +13,24 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 
-#[Route('/api/secret')]
-final class SecretController extends AbstractController
+#[Route('/v1')]
+class SecretController extends AbstractController
 {
     public function __construct(
         private SecretStorage $secretStorage,
         private SerializerInterface $serializer
     ) {}
 
-    #[Route('', methods: ['POST'])]
+    #[Route('/secret', methods: ['POST'])]
     public function create(Request $request): Response
     {
-        if (empty($request->request->get('secret'))) {
-            return new Response('Invalid input', Response::HTTP_METHOD_NOT_ALLOWED);
+        $secretValue = $request->request->get('secret');
+        if (empty($secretValue)) {
+            return new Response('Invalid input', Response::HTTP_BAD_REQUEST);
         }
 
         $secret = new Secret();
-        $secret->setSecret($request->request->get('secret'));
+        $secret->setSecret($secretValue);
         $secret->setExpireAfterViews($request->request->getInt('expireAfterViews', 1));
         $secret->setExpireAfter($request->request->getInt('expireAfter', 0));
 
@@ -38,11 +39,11 @@ final class SecretController extends AbstractController
         return $this->createResponse($secret, $request);
     }
 
-    #[Route('/{hash}', methods: ['GET'])]
+    #[Route('/secret/{hash}', methods: ['GET'])]
     public function view(string $hash, Request $request): Response
     {
         $secret = $this->secretStorage->find($hash);
-        
+
         if (!$secret || $secret->isExpired()) {
             throw new NotFoundHttpException('Secret not found');
         }
@@ -55,20 +56,14 @@ final class SecretController extends AbstractController
 
     private function createResponse(Secret $secret, Request $request): Response
     {
-        $acceptHeader = $request->getAcceptableContentTypes()[0] ?? 'application/json';
-        
-        if (str_contains($acceptHeader, 'xml')) {
-            return new Response(
-                $this->serializer->serialize($secret, 'xml'),
-                Response::HTTP_OK,
-                ['Content-Type' => 'application/xml']
-            );
-        }
+        $format = $request->getAcceptableContentTypes()[0] ?? 'application/json';
+        $format = str_contains($format, 'xml') ? 'xml' : 'json';
+        $contentType = $format === 'xml' ? 'application/xml' : 'application/json';
 
         return new Response(
-            $this->serializer->serialize($secret, 'json'),
+            $this->serializer->serialize($secret, $format),
             Response::HTTP_OK,
-            ['Content-Type' => 'application/json']
+            ['Content-Type' => $contentType]
         );
     }
 }

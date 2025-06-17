@@ -6,40 +6,19 @@ namespace App\Tests\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
-use App\Controller\SecretController;
-use App\Service\SecretStorage;
 
 final class SecretControllerTest extends WebTestCase
 {
     private static $client;
-    private string $testDir;
 
-    protected function setUp(): void
+    public static function setUpBeforeClass(): void
     {
-        parent::setUp();
-        self::$client = self::createClient();
-        $this->testDir = self::$client->getContainer()->getParameter('app.project_dir');
-        
-        if (!file_exists($this->testDir)) {
-            mkdir($this->testDir, 0777, true);
-        }
-    }
-
-    protected function tearDown(): void
-    {
-        $secretsFile = $this->testDir . DIRECTORY_SEPARATOR . 'secrets.json';
-        if (file_exists($secretsFile)) {
-            unlink($secretsFile);
-        }
-        if (file_exists($this->testDir)) {
-            rmdir($this->testDir);
-        }
-        parent::tearDown();
+        self::$client = static::createClient();
     }
 
     public function testCreateSecret(): void
     {
-        self::$client->request('POST', '/api/secret', [
+        self::$client->request('POST', '/v1/secret', [
             'secret' => 'test secret',
             'expireAfterViews' => 2,
             'expireAfter' => 5
@@ -47,16 +26,19 @@ final class SecretControllerTest extends WebTestCase
 
         $response = self::$client->getResponse();
         $this->assertEquals(Response::HTTP_OK, $response->getStatusCode());
-        
+        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+
         $content = json_decode($response->getContent(), true);
         $this->assertArrayHasKey('hash', $content);
         $this->assertEquals('test secret', $content['secretText']);
+        $this->assertEquals(2, $content['remainingViews']);
+        $this->assertNotNull($content['createdAt']);
+        $this->assertNotNull($content['expiresAt']);
     }
 
     public function testViewSecret(): void
     {
-        // Create a secret first
-        self::$client->request('POST', '/api/secret', [
+        self::$client->request('POST', '/v1/secret', [
             'secret' => 'view test',
             'expireAfterViews' => 1,
             'expireAfter' => 5
@@ -65,34 +47,28 @@ final class SecretControllerTest extends WebTestCase
         $content = json_decode(self::$client->getResponse()->getContent(), true);
         $hash = $content['hash'];
 
-        // View the secret
-        self::$client->request('GET', "/api/secret/{$hash}");
-        
+        self::$client->request('GET', "/v1/secret/{$hash}");
         $response = self::$client->getResponse();
         $this->assertEquals(Response::HTTP_OK, $response->getStatusCode());
         
-        // Second view should fail
-        self::$client->request('GET', "/api/secret/{$hash}");
+        self::$client->request('GET', "/v1/secret/{$hash}");
         $this->assertEquals(Response::HTTP_NOT_FOUND, self::$client->getResponse()->getStatusCode());
     }
 
     public function testInvalidInput(): void
     {
-        self::$client->request('POST', '/api/secret', [
+        self::$client->request('POST', '/v1/secret', [
             'secret' => '',
             'expireAfterViews' => 0,
             'expireAfter' => 0
         ]);
 
-        $this->assertEquals(
-            Response::HTTP_METHOD_NOT_ALLOWED, 
-            self::$client->getResponse()->getStatusCode()
-        );
+        $this->assertEquals(Response::HTTP_BAD_REQUEST, self::$client->getResponse()->getStatusCode());
     }
 
     public function testXmlResponse(): void
     {
-        self::$client->request('POST', '/api/secret', [
+        self::$client->request('POST', '/v1/secret', [
             'secret' => 'xml test',
             'expireAfterViews' => 1,
             'expireAfter' => 5
@@ -101,17 +77,20 @@ final class SecretControllerTest extends WebTestCase
         $response = self::$client->getResponse();
         $this->assertEquals('application/xml', $response->headers->get('Content-Type'));
         $this->assertStringContainsString('<secretText>xml test</secretText>', $response->getContent());
+        $this->assertStringContainsString('<remainingViews>1</remainingViews>', $response->getContent());
     }
 
-    public function testCreateResponseWithInvalidFormat(): void
+    public function testDefaultValues(): void
     {
-        self::$client->request('POST', '/api/secret', [
-            'secret' => 'test format',
-            'expireAfterViews' => 1,
-            'expireAfter' => 5
-        ], [], ['HTTP_ACCEPT' => 'invalid/format']);
+        self::$client->request('POST', '/v1/secret', [
+            'secret' => 'default test'
+        ]);
 
         $response = self::$client->getResponse();
-        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+        $this->assertEquals(Response::HTTP_OK, $response->getStatusCode());
+
+        $content = json_decode($response->getContent(), true);
+        $this->assertEquals(1, $content['remainingViews']);
+        $this->assertNull($content['expiresAt']);
     }
 }

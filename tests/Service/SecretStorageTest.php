@@ -15,41 +15,49 @@ final class SecretStorageTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->testDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'secret_test_' . uniqid();
+        $this->testDir = sys_get_temp_dir() . '/secret-test-' . uniqid();
         mkdir($this->testDir);
         $this->storage = new SecretStorage($this->testDir);
     }
 
     protected function tearDown(): void
     {
-        if (file_exists($this->testDir)) {
-            $this->cleanupDirectory($this->testDir);
-        }
+        array_map('unlink', glob($this->testDir . '/*'));
+        rmdir($this->testDir);
     }
 
-    private function cleanupDirectory(string $dir): void
-    {
-        $files = new \DirectoryIterator($dir);
-        foreach ($files as $file) {
-            if ($file->isDot()) continue;
-            if ($file->isDir()) {
-                $this->cleanupDirectory($file->getPathname());
-            } else {
-                unlink($file->getPathname());
-            }
-        }
-        rmdir($dir);
-    }
-
-    public function testBasicStorage(): void
+    public function testSaveAndFind(): void
     {
         $secret = new Secret();
-        $secret->setSecret('test message');
-        
+        $secret->setSecret('test storage');
+        $secret->setExpireAfterViews(2);  // Now using the new method
+
         $this->storage->save($secret);
-        $retrieved = $this->storage->find($secret->getHash());
-        
-        $this->assertNotNull($retrieved);
-        $this->assertEquals('test message', $retrieved->getSecretText());
+
+        $found = $this->storage->find($secret->getHash());
+        $this->assertNotNull($found);
+        $this->assertEquals($secret->getHash(), $found->getHash());
+        $this->assertEquals('test storage', $found->getSecret());
+        $this->assertEquals(2, $found->getRemainingViews());
+    }
+
+    public function testFindNonExistent(): void
+    {
+        $this->assertNull($this->storage->find('non-existent-hash'));
+    }
+
+    public function testOverwrite(): void
+    {
+        $secret = new Secret();
+        $secret->setSecret('original');
+
+        $this->storage->save($secret);
+        $hash = $secret->getHash();
+
+        $secret->setSecret('updated');
+        $this->storage->save($secret);
+
+        $found = $this->storage->find($hash);
+        $this->assertEquals('updated', $found->getSecret());
     }
 }

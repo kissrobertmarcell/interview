@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 namespace App\Service;
 
 use App\Entity\Secret;
@@ -9,16 +12,26 @@ class SecretStorage
 
     public function __construct(string $projectDir)
     {
-        $storageDir = $_ENV['STORAGE_DIR'] ?? $projectDir . '/var/storage';
-        $this->storageFile = $storageDir . '/secrets.json';
+        $this->storageFile = $projectDir . '/var/storage/secrets.json';
         $this->initializeStorage();
+    }
+
+    private function initializeStorage(): void
+    {
+        $storageDir = dirname($this->storageFile);
+        if (!file_exists($storageDir)) {
+            mkdir($storageDir, 0750, true);
+        }
+        if (!file_exists($this->storageFile)) {
+            file_put_contents($this->storageFile, serialize([]), LOCK_EX);
+        }
     }
 
     public function save(Secret $secret): void
     {
         $secrets = $this->loadSecrets();
         $secrets[$secret->getHash()] = $secret;
-        $this->saveSecrets($secrets);
+        file_put_contents($this->storageFile, serialize($secrets), LOCK_EX);
     }
 
     public function find(string $hash): ?Secret
@@ -29,30 +42,7 @@ class SecretStorage
 
     private function loadSecrets(): array
     {
-        if (!file_exists($this->storageFile) || filesize($this->storageFile) === 0) {
-            return [];
-        }
-        
-        $data = file_get_contents($this->storageFile);
-        $secrets = @unserialize($data);
-        return $secrets !== false ? $secrets : [];
-    }
-
-    private function saveSecrets(array $secrets): void
-    {
-        if (!file_exists(dirname($this->storageFile))) {
-            mkdir(dirname($this->storageFile), 0777, true);
-        }
-        file_put_contents($this->storageFile, serialize($secrets));
-    }
-
-    private function initializeStorage(): void
-    {
-        if (!file_exists(dirname($this->storageFile))) {
-            mkdir(dirname($this->storageFile), 0777, true);
-        }
-        if (!file_exists($this->storageFile)) {
-            file_put_contents($this->storageFile, '[]');
-        }
+        $data = unserialize(file_get_contents($this->storageFile));
+        return is_array($data) ? $data : [];
     }
 }
