@@ -1,0 +1,12 @@
+parameters:
+    app.project_dir: '%kernel.project_dir%/var/test'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: true
+
+    App\Service\SecretStorage:
+        arguments:
+            $projectDir: '%app.project_dir%'
