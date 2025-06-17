@@ -31,7 +31,7 @@ ENV APP_DEBUG=0
 ENV PORT=10000
 
 # Expose the port
-EXPOSE ${PORT}
+EXPOSE 10000
 
 # Start PHP's built-in server
-CMD ["php", "-S", "0.0.0.0:${PORT}", "-t", "public"]
+CMD ["sh", "-c", "php -S 0.0.0.0:$PORT -t public"]
