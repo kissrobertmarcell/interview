@@ -1,0 +1,10 @@
+{
+  "name": "secret-server",
+  "private": true,
+  "scripts": {
+    "start": "php -S 0.0.0.0:$PORT -t public/"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

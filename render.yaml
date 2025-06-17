@@ -2,8 +2,10 @@ services:
   - type: web
     name: secret-server
     env: php
-    buildCommand: composer install --no-dev
-    startCommand: php -S 0.0.0.0:$PORT -t public/
+    buildCommand: |
+      composer install --no-dev --optimize-autoloader
+      npm install
+    startCommand: npm start
     envVars:
       - key: APP_ENV
         value: prod
